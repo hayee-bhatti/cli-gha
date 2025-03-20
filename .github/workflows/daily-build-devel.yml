@@ -30,7 +30,7 @@ jobs:
           cat $FILE
           
       - name: Upload artifact (timestamp file)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: timestamp-file
           path: /tmp/*.txt
