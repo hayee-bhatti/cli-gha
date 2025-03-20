@@ -10,6 +10,7 @@ jobs:
     steps:
       - name: Confirm environment paths and contents
         run: |
+          source /home/rocky/.bashrc
           echo "Listing $PGE directory:"
           ls -l $PGE
           
