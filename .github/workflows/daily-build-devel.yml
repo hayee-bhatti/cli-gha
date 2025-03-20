@@ -28,8 +28,3 @@ jobs:
           echo "File created. Contents:"
           cat $FILE
 
-      - name: Upload artifact (timestamp file)
-        uses: actions/upload-artifact@v3
-        with:
-          name: timestamp-file
-          path: /tmp/*.txt
