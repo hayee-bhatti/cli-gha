@@ -1,37 +1,58 @@
-name: Daily Build Test
+name: Daily Build to devel
 
 on:
-  workflow_dispatch:  # Manual trigger 
+  workflow_dispatch:  # Manual trigger
+  # schedule:
+  #   - cron: '0 23 * * *'  # Runs daily at 7PM EST (23:00 UTC), uncomment when ready
 
 jobs:
-  build-test:
-    runs-on: [self-hosted, amd8]  # Uses our configured amd8 self hosted runner
+  daily-build:
+    runs-on: [self-hosted, amd8]  # Uses configured amd8 self-hosted runner
+    # branches:
+    #   - rel25_dailybld
+    #   - REL25_01  # Uncomment if needed
 
     steps:
-      - name: Confirm environment paths and contents
+      - name: Environment setup and verification
         run: |
-          source /home/rocky/.bashrc
-          echo "Listing $PGE directory:"
-          ls -l $PGE
+          echo "Sourcing bashrc and checking environment..."
+          source ~/.bashrc
           
-          echo "Listing $BLD directory:"
-          ls -l $BLD
-          
-          echo "OS details:"
+          echo "OS Release Info:"
           cat /etc/os-release
           
+          echo "Machine Architecture:"
+          arch
+          
+          echo "Checking git repo, branch in \$PGE..."
+          cd $PGE
+          git branch
+          git status
+
+      - name: Build platform packages and public to devel repo
+        run: |
+          source ~/.bashrc
+          cd $DEV
           TIMESTAMP=$(date +%d%m%y-%H%M)
-          FILE=/tmp/$TIMESTAMP.txt
-          echo "Creating file: $FILE"
-          touch $FILE
-          echo "Created by daily-build workflow at $(date)" > $FILE
+          LOGFILE="/tmp/build_to_devel-log-$TIMESTAMP.log"
           
-          echo "File created. Contents:"
-          cat $FILE
+          echo "Executing build_to_tempdvl.sh... output going to $LOGFILE"
+          ./build_to_tempdvl.sh 2>&1 | tee $LOGFILE
           
-      - name: Upload artifact (timestamp file)
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "Build script exited with code: $EXIT_CODE"
+          
+          # Export logfile path so next step can access it
+          echo "LOGFILE=$LOGFILE" >> $GITHUB_ENV
+          
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Build script failed with exit code $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
+
+      - name: Upload build log artifact
+        if: always()   # Upload build log artifact 
         uses: actions/upload-artifact@v4
         with:
-          name: timestamp-file
-          path: /tmp/*.txt
-
+          name: build-log
+          path: ${{ env.LOGFILE }}
