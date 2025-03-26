@@ -1,0 +1,67 @@
+name: Dummy Daily Build Test
+
+on:
+  workflow_dispatch:  # Manual trigger
+  # schedule:
+  #   - cron: '0 23 * * *'   # Scheduled daily at 7PM EST (currently commented)
+
+jobs:
+  build-test:
+    runs-on: [self-hosted, amd8]
+
+    steps:
+      - name: Confirm environment and prep
+        run: |
+          source /home/rocky/.bashrc
+          echo "OS details:"
+          cat /etc/os-release
+          echo "Architecture:"
+          arch
+          echo "PGE path contents:"
+          ls -l $PGE
+          echo "DEV path contents:"
+          ls -l $DEV
+
+      - name: Dummy log creation and symlink
+        run: |
+          source /home/rocky/.bashrc
+          TIMESTAMP=$(date +%d%m%y-%H%M)
+          LOGFILE="/tmp/build_to_devel-log-$TIMESTAMP.log"
+          SYMLINK="/tmp/build_to_devel-latest-build.log"
+
+          # Cleanup any existing symlink
+          if [ -L "$SYMLINK" ]; then
+            echo "Removing old symlink"
+            rm -f "$SYMLINK"
+          fi
+
+          echo "Pretending to run build script... (this is a dummy run)" | tee $LOGFILE
+          echo "Timestamp: $(date)" >> $LOGFILE
+          echo "Logfile for dummy build test run." >> $LOGFILE
+
+          # Dummy exit code (simulate success)
+          EXIT_CODE=0
+
+          # Create the new symlink
+          ln -s $LOGFILE $SYMLINK
+
+          echo "Symlink created: $SYMLINK -> $LOGFILE"
+          echo "Simulated exit code: $EXIT_CODE"
+
+          # The real script execution would look like this:
+          # cd $DEV
+          # ./build_to_tempdvl.sh 2>&1 | tee $LOGFILE
+          # EXIT_CODE=${PIPESTATUS[0]}
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Dummy build failed (simulated failure)"
+            exit $EXIT_CODE
+          fi
+
+      - name: Upload dummy build log via symlink
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dummy-build-log
+          path: /tmp/build_to_devel-latest-build.log
+          if-no-files-found: warn
