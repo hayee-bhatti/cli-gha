@@ -23,30 +23,32 @@ jobs:
           git branch
           git status
 
+      
+
       - name: Run build and create symlinked log
         run: |
           source /home/rocky/.bashrc
           TIMESTAMP=$(date +%d%m%y-%H%M)
           LOGFILE="/tmp/build_to_devel-log-$TIMESTAMP.log"
           SYMLINK="/tmp/build_to_devel-latest-build.log"
-
+      
           # remove any existing symlink (that may be pointing to an older log)
           if [ -L "$SYMLINK" ]; then
             echo "Removing older symlink: $SYMLINK"
             rm -f "$SYMLINK"
           fi
-
+      
           echo "Starting build, log will be written to: $LOGFILE"
           cd $DEV
-          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh 2>&1 | tee $LOGFILE
-
-          EXIT_CODE=${PIPESTATUS[0]}
+          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > $LOGFILE 2>&1
+          EXIT_CODE=$?
+      
           echo "Build finished with exit code: $EXIT_CODE"
-
+      
           # Re-create symlink for this run's log
           ln -s $LOGFILE $SYMLINK
           echo "Symlink created: $SYMLINK -> $LOGFILE"
-
+      
           if [ $EXIT_CODE -ne 0 ]; then
             echo "Build failed with exit code $EXIT_CODE"
             exit $EXIT_CODE
