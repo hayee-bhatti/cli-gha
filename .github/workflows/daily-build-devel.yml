@@ -1,58 +1,61 @@
-name: Daily Build to devel
+name: Daily Build Test
 
 on:
   workflow_dispatch:  # Manual trigger
   # schedule:
-  #   - cron: '0 23 * * *'  # Runs daily at 7PM EST (23:00 UTC), uncomment when ready
+  #   - cron: '0 23 * * *'   # Scheduled daily at 7PM EST (currently commented)
 
 jobs:
-  daily-build:
-    runs-on: [self-hosted, amd8]  # Uses configured amd8 self-hosted runner
-    # branches:
-    #   - rel25_dailybld
-    #   - REL25_01  # Uncomment if needed
+  build-test:
+    runs-on: [self-hosted, amd8]  # using our amd8 self-hosted runner
 
     steps:
-      - name: Environment setup and verification
+      - name: Confirm environment and prep for build
         run: |
-          echo "Sourcing bashrc and checking environment..."
-          source ~/.bashrc
-          
-          echo "OS Release Info:"
+          source /home/rocky/.bashrc
+          echo "OS details:"
           cat /etc/os-release
-          
-          echo "Machine Architecture:"
+          echo "Architecture:"
           arch
           
-          echo "Checking git repo, branch in \$PGE..."
+          echo "Listing $PGE git status:"
           cd $PGE
           git branch
           git status
 
-      - name: Build platform packages and public to devel repo
+      - name: Run build and create symlinked log
         run: |
-          source ~/.bashrc
-          cd $DEV
+          source /home/rocky/.bashrc
           TIMESTAMP=$(date +%d%m%y-%H%M)
           LOGFILE="/tmp/build_to_devel-log-$TIMESTAMP.log"
-          
-          echo "Executing build_to_tempdvl.sh... output going to $LOGFILE"
-          ./build_to_tempdvl.sh 2>&1 | tee $LOGFILE
-          
+          SYMLINK="/tmp/build_to_devel-latest-build.log"
+
+          # remove any existing symlink (that may be pointing to an older log)
+          if [ -L "$SYMLINK" ]; then
+            echo "Removing older symlink: $SYMLINK"
+            rm -f "$SYMLINK"
+          fi
+
+          echo "Starting build, log will be written to: $LOGFILE"
+          cd $DEV
+          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh 2>&1 | tee $LOGFILE
+
           EXIT_CODE=${PIPESTATUS[0]}
-          echo "Build script exited with code: $EXIT_CODE"
-          
-          # Export logfile path so next step can access it
-          echo "LOGFILE=$LOGFILE" >> $GITHUB_ENV
-          
+          echo "Build finished with exit code: $EXIT_CODE"
+
+          # Re-create symlink for this run's log
+          ln -s $LOGFILE $SYMLINK
+          echo "Symlink created: $SYMLINK -> $LOGFILE"
+
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "Build script failed with exit code $EXIT_CODE"
+            echo "Build failed with exit code $EXIT_CODE"
             exit $EXIT_CODE
           fi
 
-      - name: Upload build log artifact
-        if: always()   # Upload build log artifact 
+      - name: Upload current build log via symlink
+        if: always()  # run even if build failed
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: ${{ env.LOGFILE }}
+          path: /tmp/build_to_devel-latest-build.log
+          if-no-files-found: warn
