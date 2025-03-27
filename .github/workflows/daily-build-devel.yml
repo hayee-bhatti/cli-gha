@@ -7,9 +7,14 @@ on:
 
 jobs:
   build-test:
-    runs-on: [self-hosted, amd8]  # using our amd8 self-hosted runner
+    runs-on: [self-hosted, amd8]  # Uses the amd8 self-hosted runner
 
     steps:
+      # Export runner name as an environment variable for shell use
+      - name: Set runner name
+        run: echo "RUNNER_NAME=${{ runner.name }}" >> $GITHUB_ENV
+
+      # --- Confirm environment and show git repo status ---
       - name: Confirm environment and prep for build
         run: |
           source /home/rocky/.bashrc
@@ -17,49 +22,40 @@ jobs:
           cat /etc/os-release
           echo "Architecture:"
           arch
-          
-          echo "Listing $PGE git status:"
+          echo "Listing project git status:"
           cd $PGE
           git branch
           git status
 
-      
-
-      - name: Run build and push to devel repo
+      # --- Run the actual build script and log the output ---
+      - name: Generate platform build and push to devel repo
         run: |
           source /home/rocky/.bashrc
+
           TIMESTAMP=$(date +%d%m%y-%H%M)
-          LOGFILE="/tmp/build_to_devel-log-$TIMESTAMP.log"
-          SYMLINK="/tmp/build_to_devel-latest-build.log"
-      
-          # remove any existing symlink (that may be pointing to an older log)
-          if [ -L "$SYMLINK" ]; then
-            echo "Removing older symlink: $SYMLINK"
-            rm -f "$SYMLINK"
-          fi
-      
-          echo "Starting build, log will be written to: $LOGFILE"
+          LOGFILE="/tmp/build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
+
+          echo "Starting build. Output will be logged to $LOGFILE"
+
           cd $DEV
-          {
-            AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh
-          } 2>&1 | tee "$LOGFILE"
-          EXIT_CODE=${PIPESTATUS[0]}
-      
+          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > $LOGFILE 2>&1
+          EXIT_CODE=$?
+
           echo "Build finished with exit code: $EXIT_CODE"
-      
-          # Re-create symlink for this run's log
-          ln -s $LOGFILE $SYMLINK
-          echo "Symlink created: $SYMLINK -> $LOGFILE"
-      
+
+          # Export log path for artifact upload step
+          echo "LOGFILE_PATH=$LOGFILE" >> $GITHUB_ENV
+
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "Build failed with exit code $EXIT_CODE"
+            echo "Build failed. Exiting with status $EXIT_CODE"
             exit $EXIT_CODE
           fi
 
-      - name: Upload current build log via symlink
-        if: always()  # run even if build failed
+      # --- Upload log file as artifact ---
+      - name: Upload build log artifact
+        if: always()  # Run even if build failed
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: /tmp/build_to_devel-latest-build.log
+          path: ${{ env.LOGFILE_PATH }}
           if-no-files-found: warn
