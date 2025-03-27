@@ -25,7 +25,7 @@ jobs:
 
       
 
-      - name: Run build and create symlinked log
+      - name: Run build and push to devel repo
         run: |
           source /home/rocky/.bashrc
           TIMESTAMP=$(date +%d%m%y-%H%M)
@@ -40,8 +40,10 @@ jobs:
       
           echo "Starting build, log will be written to: $LOGFILE"
           cd $DEV
-          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > $LOGFILE 2>&1
-          EXIT_CODE=$?
+          {
+            AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh
+          } 2>&1 | tee "$LOGFILE"
+          EXIT_CODE=${PIPESTATUS[0]}
       
           echo "Build finished with exit code: $EXIT_CODE"
       
