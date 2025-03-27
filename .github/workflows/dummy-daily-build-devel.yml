@@ -3,65 +3,50 @@ name: Dummy Daily Build Test
 on:
   workflow_dispatch:  # Manual trigger
   # schedule:
-  #   - cron: '0 23 * * *'   # Scheduled daily at 7PM EST (currently commented)
+  #   - cron: '0 23 * * *'   # Daily at 7PM EST
 
 jobs:
   build-test:
     runs-on: [self-hosted, amd8]
 
     steps:
-      - name: Confirm environment and prep
+      # Set runner name from GitHub's built-in env var
+      - name: Set runner name
+        run: echo "RUNNER_NAME=${{ runner.name }}" >> $GITHUB_ENV
+
+      - name: Confirm environment and runner context
         run: |
           source /home/rocky/.bashrc
           echo "OS details:"
           cat /etc/os-release
           echo "Architecture:"
           arch
-          echo "PGE path contents:"
-          ls -l $PGE
-          echo "DEV path contents:"
-          ls -l $DEV
+          echo "Runner name from env: $RUNNER_NAME"
 
-      - name: Dummy log creation and symlink
+      - name: Simulate build step and generate dummy log
         run: |
           source /home/rocky/.bashrc
+
           TIMESTAMP=$(date +%d%m%y-%H%M)
-          LOGFILE="/tmp/build_to_devel-log-$TIMESTAMP.log"
-          SYMLINK="/tmp/build_to_devel-latest-build.log"
+          LOGFILE="/tmp/build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
 
-          # Cleanup any existing symlink
-          if [ -L "$SYMLINK" ]; then
-            echo "Removing old symlink"
-            rm -f "$SYMLINK"
-          fi
+          echo "LOGFILE_PATH=$LOGFILE" >> $GITHUB_ENV
+          
+          echo "Creating dummy build log at $LOGFILE"
+          echo "Dummy build completed successfully on runner $RUNNER_NAME at $TIMESTAMP" > "$LOGFILE"
 
-          echo "Pretending to run build script... (this is a dummy run)" | tee $LOGFILE
-          echo "Timestamp: $(date)" >> $LOGFILE
-          echo "Logfile for dummy build test run." >> $LOGFILE
-
-          # Dummy exit code (simulate success)
           EXIT_CODE=0
-
-          # Create the new symlink
-          ln -s $LOGFILE $SYMLINK
-
-          echo "Symlink created: $SYMLINK -> $LOGFILE"
           echo "Simulated exit code: $EXIT_CODE"
 
-          # The real script execution would look like this:
-          # cd $DEV
-          # ./build_to_tempdvl.sh 2>&1 | tee $LOGFILE
-          # EXIT_CODE=${PIPESTATUS[0]}
-
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "Dummy build failed (simulated failure)"
+            echo "Build failed. Exiting with status $EXIT_CODE"
             exit $EXIT_CODE
           fi
 
-      - name: Upload dummy build log via symlink
+      - name: Upload dummy log artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dummy-build-log
-          path: /tmp/build_to_devel-latest-build.log
+          path: ${{ env.LOGFILE_PATH }}
           if-no-files-found: warn
