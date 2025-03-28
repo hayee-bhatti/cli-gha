@@ -1,4 +1,4 @@
-name: Daily Build Test
+name: Daily Build amd Test
 
 on:
   workflow_dispatch:  # Manual trigger
@@ -10,7 +10,7 @@ jobs:
     runs-on: [self-hosted, amd8]  # Uses the amd8 self-hosted runner
 
     steps:
-      # --- Set runner name and logfile path in environment ---
+      # Set runner name and logfile path in environment 
       - name: Set runner name and logfile path
         run: |
           RUNNER_NAME="${{ runner.name }}"
@@ -23,7 +23,7 @@ jobs:
           echo "Runner name set as: $RUNNER_NAME"
           echo "Logfile path set as: $LOGFILE_PATH"
 
-      # --- Confirm environment and show git repo status ---
+      # Confirm environment and show git repo status
       - name: Confirm environment and prep for build
         run: |
           source /home/rocky/.bashrc
@@ -36,7 +36,7 @@ jobs:
           git branch
           git status
 
-      # --- Run the actual build script and log the output ---
+      # Generate build and push to devel repo 
       - name: Generate platform build and push to devel repo
         run: |
           source /home/rocky/.bashrc
@@ -44,7 +44,7 @@ jobs:
           echo "Starting build. Output will be logged to: $LOGFILE_PATH"
 
           cd $DEV
-          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > "$LOGFILE_PATH" 2>&1
+          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > "$LOGFILE_PATH" 2>&1 
           EXIT_CODE=$?
 
           echo "Build finished with exit code: $EXIT_CODE"
@@ -54,7 +54,7 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      # --- Upload log file as artifact ---
+      # Upload log file as artifact
       - name: Upload build log artifact
         if: always()  # Run even if build failed
         uses: actions/upload-artifact@v4
