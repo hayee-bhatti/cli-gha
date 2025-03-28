@@ -26,7 +26,7 @@ jobs:
       # Confirm environment and show git repo status
       - name: Confirm environment and prep for build
         run: |
-          source /home/rocky/.bashrc
+          source ~/.bashrc
           echo "OS details:"
           cat /etc/os-release
           echo "Architecture:"
@@ -39,7 +39,7 @@ jobs:
       # Generate build and push to devel repo 
       - name: Generate platform build and push to devel repo
         run: |
-          source /home/rocky/.bashrc
+          source ~/.bashrc
 
           echo "Starting build. Output will be logged to: $LOGFILE_PATH"
 
