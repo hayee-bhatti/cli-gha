@@ -10,9 +10,18 @@ jobs:
     runs-on: [self-hosted, amd8]  # Uses the amd8 self-hosted runner
 
     steps:
-      # Export runner name as an environment variable for shell use
-      - name: Set runner name
-        run: echo "RUNNER_NAME=${{ runner.name }}" >> $GITHUB_ENV
+      # --- Set runner name and logfile path in environment ---
+      - name: Set runner name and logfile path
+        run: |
+          RUNNER_NAME="${{ runner.name }}"
+          TIMESTAMP=$(date +%d%m%y-%H%M)
+          LOGFILE_PATH="/tmp/build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
+
+          echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
+          echo "LOGFILE_PATH=$LOGFILE_PATH" >> $GITHUB_ENV
+
+          echo "Runner name set as: $RUNNER_NAME"
+          echo "Logfile path set as: $LOGFILE_PATH"
 
       # --- Confirm environment and show git repo status ---
       - name: Confirm environment and prep for build
@@ -32,19 +41,13 @@ jobs:
         run: |
           source /home/rocky/.bashrc
 
-          TIMESTAMP=$(date +%d%m%y-%H%M)
-          LOGFILE="/tmp/build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
-
-          echo "Starting build. Output will be logged to $LOGFILE"
+          echo "Starting build. Output will be logged to: $LOGFILE_PATH"
 
           cd $DEV
-          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > $LOGFILE 2>&1
+          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > "$LOGFILE_PATH" 2>&1
           EXIT_CODE=$?
 
           echo "Build finished with exit code: $EXIT_CODE"
-
-          # Export log path for artifact upload step
-          echo "LOGFILE_PATH=$LOGFILE" >> $GITHUB_ENV
 
           if [ $EXIT_CODE -ne 0 ]; then
             echo "Build failed. Exiting with status $EXIT_CODE"
