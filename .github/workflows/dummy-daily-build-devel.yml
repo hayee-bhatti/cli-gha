@@ -34,9 +34,6 @@ jobs:
     runs-on: [self-hosted, amd8]
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
       # Step to set dynamic values (prefix, clean flag, logfile name)
       - name: Set prefix, clean flag, and log file
         id: vars
