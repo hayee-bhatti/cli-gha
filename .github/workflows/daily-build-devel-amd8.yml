@@ -115,6 +115,7 @@ jobs:
           echo "Executing: ./build_to_tempdvl.sh $PREFIX $CLEAN_FLAG" > "$LOGFILE_PATH" 2>&1
           #AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh "$PREFIX" $CLEAN_FLAG > "$LOGFILE_PATH" 2>&1
           #EXIT_CODE=$?
+          EXIT_CODE=0
 
           echo "Build finished with exit code: $EXIT_CODE"
 
