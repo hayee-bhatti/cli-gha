@@ -106,7 +106,7 @@ jobs:
 
       - name: Run build and push to devel repo
         run: |
-          source /home/rocky/.bashrc
+          source ~/.bashrc
 
           echo "Launching build script..."
           cd $DEV
