@@ -1,62 +1,130 @@
-name: Daily Build amd Test
+name: Stable Daily Build Devel - amd8
 
 on:
-  workflow_dispatch:  # Manual trigger
-  # schedule:
-  #   - cron: '0 23 * * *'   # Scheduled daily at 7PM EST (currently commented)
+  workflow_dispatch:
+    inputs:
+      prefix_selector:
+        description: "Specify pgedge-devel repo sub-directory name (choose 'default' for MMDD or 'custom' to input your own)"
+        required: true
+        default: "default"
+        type: choice
+        options:
+          - default
+          - custom
+
+      custom_prefix:
+        description: "If 'custom' selected above, provide sub-directory name"
+        required: false
+
+      clean_prefix:
+        description: "Clean the repo sub-directory before copying packages"
+        required: false
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
+
+  schedule:
+    - cron: "0 23 * * *"  # 11PM UTC = 7PM EST
 
 jobs:
-  build-test:
-    runs-on: [self-hosted, amd8]  # Uses the amd8 self-hosted runner
+  build-stable-amd8:
+    runs-on: [self-hosted, amd8]
 
     steps:
-      # Set runner name and logfile path in environment 
-      - name: Set runner name and logfile path
+      - name: Set build parameters and logfile
+        id: vars
         run: |
-          RUNNER_NAME="${{ runner.name }}"
-          TIMESTAMP=$(date +%d%m%y-%H%M)
-          LOGFILE_PATH="/tmp/build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
+          source ~/.bashrc
 
+          echo "Resolving build parameters..."
+
+          TODAY=$(date +%m%d)
+          RUNNER_NAME="${{ runner.name }}"
+
+          # Determine prefix
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            PREFIX="$TODAY"
+            CLEAN_FLAG=""
+            echo "Scheduled run: Prefix=$PREFIX, clean flag not set."
+          else
+            if [[ "${{ inputs.prefix_selector }}" == "default" ]]; then
+              PREFIX="$TODAY"
+              echo "Manual run: Using default prefix: $PREFIX"
+            else
+              if [[ -z "${{ inputs.custom_prefix }}" ]]; then
+                echo "Error: Custom prefix selected but no input provided."
+                exit 1
+              fi
+              PREFIX="${{ inputs.custom_prefix }}"
+              echo "Manual run: Using custom prefix: $PREFIX"
+            fi
+
+            if [[ "${{ inputs.clean_prefix }}" == "true" ]]; then
+              CLEAN_FLAG="--clean"
+              echo "Clean flag is enabled"
+            else
+              CLEAN_FLAG=""
+              echo "Clean flag is disabled"
+            fi
+          fi
+
+          # Compute timestamped log file
+          TIMESTAMP=$(date +%m%d%y-%H%M)
+          LOGFILE_NAME="build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
+          LOGFILE_PATH="/tmp/${LOGFILE_NAME}"
+
+          # Export environment variables
           echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
+          echo "PREFIX=$PREFIX" >> $GITHUB_ENV
+          echo "CLEAN_FLAG=$CLEAN_FLAG" >> $GITHUB_ENV
           echo "LOGFILE_PATH=$LOGFILE_PATH" >> $GITHUB_ENV
 
-          echo "Runner name set as: $RUNNER_NAME"
-          echo "Logfile path set as: $LOGFILE_PATH"
+          echo "Log file will be created at: $LOGFILE_PATH"
 
-      # Confirm environment and show git repo status
-      - name: Confirm environment and prep for build
+      - name: Show effective configuration
         run: |
-          source /home/rocky/.bashrc
-          echo "OS details:"
+          echo "Runner: $RUNNER_NAME"
+          echo "Prefix: $PREFIX"
+          echo "Clean flag: $CLEAN_FLAG"
+          echo "Log file path: $LOGFILE_PATH"
+          echo "Target S3 path: https://pgedge-devel.s3.amazonaws.com/REPO/stable/$PREFIX"
+
+      - name: Confirm environment and git repo status
+        run: |
+          source ~/.bashrc
+          echo "OS info:"
           cat /etc/os-release
           echo "Architecture:"
           arch
-          echo "Listing project git status:"
+
+          echo "Navigating to project and checking git branch..."
           cd $PGE
           git branch
           git status
 
-      # Generate build and push to devel repo 
-      - name: Generate platform build and push to devel repo
+      - name: Run build and push to devel repo
         run: |
           source /home/rocky/.bashrc
 
-          echo "Starting build. Output will be logged to: $LOGFILE_PATH"
-
+          echo "Launching build script..."
           cd $DEV
-          AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh > "$LOGFILE_PATH" 2>&1 
-          EXIT_CODE=$?
+
+          echo "Executing: ./build_to_tempdvl.sh $PREFIX $CLEAN_FLAG"
+          echo "Executing: ./build_to_tempdvl.sh $PREFIX $CLEAN_FLAG" > "$LOGFILE_PATH" 2>&1
+          #AWS_PROFILE=pgedge-build ./build_to_tempdvl.sh "$PREFIX" $CLEAN_FLAG > "$LOGFILE_PATH" 2>&1
+          #EXIT_CODE=$?
 
           echo "Build finished with exit code: $EXIT_CODE"
 
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "Build failed. Exiting with status $EXIT_CODE"
+          if [[ $EXIT_CODE -ne 0 ]]; then
+            echo "Build failed. Check the log for details."
             exit $EXIT_CODE
           fi
 
-      # Upload log file as artifact
       - name: Upload build log artifact
-        if: always()  # Run even if build failed
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
