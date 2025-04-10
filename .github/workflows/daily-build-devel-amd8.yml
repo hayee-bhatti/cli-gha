@@ -114,6 +114,7 @@ jobs:
           echo "CLI branch: $CLI_BRANCH"
 
       - name: Confirm environment and switching to required cli branch
+        id: cli_branch_checkout
         run: |
           source ~/.bashrc
           echo "OS info:"
@@ -135,6 +136,7 @@ jobs:
           git checkout "$CLI_BRANCH" || true
 
       - name: Run build and push to devel repo
+        id: build_to_devel
         run: |
           source ~/.bashrc
 
@@ -161,3 +163,21 @@ jobs:
           name: build-log
           path: ${{ env.LOGFILE_PATH }}
           if-no-files-found: warn
+
+      - name: Cleanup build artifacts
+        if: steps.build_to_devel.outcome == 'success'
+        continue-on-error: true
+        run: |
+          # ensuring an unsuccessful deletion of this dir doesn't cause the entire job to fail
+          run_day=$(date +%j)
+          TARGET="$HIST/devel-$run_day"
+          echo "Attempting to remove: $TARGET"
+      
+          if [ -d "$TARGET" ]; then
+            rm -rf "$TARGET"
+            echo "Successfully removed $TARGET"
+          else
+            echo "Directory $TARGET does not exist. Nothing to clean."
+          fi
+
+
