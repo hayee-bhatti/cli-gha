@@ -3,6 +3,15 @@ name: Stable Daily Build Devel - amd8
 on:
   workflow_dispatch:
     inputs:
+      cli_branch:
+        description: "Select the CLI branch to build from"
+        required: true
+        default: REL25_01
+        type: choice
+        options:
+          - REL25_01
+          - REL24_10
+
       prefix_selector:
         description: "Choose target pgedge-devel repo sub-directory (default = MMDD, custom = your input). Packages will be at: https://pgedge-devel.s3.amazonaws.com/REPO/stable/<sub-dir>"
         required: true
@@ -43,20 +52,21 @@ jobs:
           TODAY=$(date +%m%d)
           RUNNER_NAME="${{ runner.name }}"
 
-          # Determine s3 prefix (sub-directory) 
+          # Determine s3 prefix (sub-directory)
           # If the run is automated, set prefix to MMDD and no clean flag
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             PREFIX="$TODAY"
             CLEAN_FLAG=""
-            echo "Scheduled run: Prefix=$PREFIX, clean flag not set."
+            SELECTED_CLI_BRANCH="${{ inputs.cli_branch }}"
+            echo "Scheduled run: Prefix=$PREFIX, Clean flag not set, Branch=$SELECTED_CLI_BRANCH"
           else
             # Manually triggered workflow
-            # If sub-dir chosen is default, set prefix to MMDD 
+            # If sub-directory prefix chosen is default, set prefix to MMDD 
             if [[ "${{ inputs.prefix_selector }}" == "default" ]]; then
               PREFIX="$TODAY"
               echo "Manual run: Using default prefix: $PREFIX"
             else
-              # If sub-dir chosen is custom, check a custom value is input or exit
+              # If sub-directory prefix chosen is custom, check a custom value is input or exit
               if [[ -z "${{ inputs.custom_prefix }}" ]]; then
                 echo "Error: Custom prefix selected but no input provided."
                 exit 1
@@ -65,6 +75,8 @@ jobs:
               PREFIX="${{ inputs.custom_prefix }}"
               echo "Manual run: Using custom prefix: $PREFIX"
             fi
+
+            # Clean flag handling
             # If true is chosen in the clean dropdown, set the --clean flag
             if [[ "${{ inputs.clean_prefix }}" == "true" ]]; then
               CLEAN_FLAG="--clean"
@@ -73,9 +85,13 @@ jobs:
               CLEAN_FLAG=""
               echo "Clean flag is disabled"
             fi
+
+            # Branch input
+            SELECTED_CLI_BRANCH="${{ inputs.cli_branch }}"
+            echo "Manual run: Selected CLI branch: $SELECTED_CLI_BRANCH"
           fi
 
-          # Compute timestamped log file
+          # Set timestamped log file
           TIMESTAMP=$(date +%m%d%y-%H%M)
           LOGFILE_NAME="build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
           LOGFILE_PATH="/tmp/${LOGFILE_NAME}"
@@ -85,6 +101,7 @@ jobs:
           echo "PREFIX=$PREFIX" >> $GITHUB_ENV
           echo "CLEAN_FLAG=$CLEAN_FLAG" >> $GITHUB_ENV
           echo "LOGFILE_PATH=$LOGFILE_PATH" >> $GITHUB_ENV
+          echo "CLI_BRANCH=$SELECTED_CLI_BRANCH" >> $GITHUB_ENV
 
           echo "Log file will be created at: $LOGFILE_PATH"
 
@@ -94,8 +111,9 @@ jobs:
           echo "Prefix: $PREFIX"
           echo "Clean flag: $CLEAN_FLAG"
           echo "Log file path: $LOGFILE_PATH"
+          echo "CLI branch: $CLI_BRANCH"
 
-      - name: Confirm environment and cli repo information
+      - name: Confirm environment and switching to required cli branch
         run: |
           source ~/.bashrc
           echo "OS info:"
@@ -103,10 +121,18 @@ jobs:
           echo "Architecture:"
           arch
 
-          echo "Navigating to CLI, branch status and checking out the required branch"
+          echo "Navigating to CLI and safely checking out specified branch..."
           cd $PGE
+
+          echo "Current branch and status:"
           git branch
           git status
+
+          echo "Stashing changes (if any)..."
+          git stash push -u -m "Temp stash for branch switch" || true
+
+          echo "Checking out branch: $CLI_BRANCH"
+          git checkout "$CLI_BRANCH" || true
 
       - name: Run build and push to devel repo
         run: |
