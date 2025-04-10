@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       prefix_selector:
-        description: "Specify pgedge-devel repo sub-directory name (choose 'default' for MMDD or 'custom' to input your own). When the workflow completes successfully, packages will be available at: https://pgedge-devel.s3.amazonaws.com/REPO/stable/<sub-dir>"
+        description: "Choose target pgedge-devel repo sub-directory (default = MMDD, custom = your input). Packages will be at: https://pgedge-devel.s3.amazonaws.com/REPO/stable/<sub-dir>"
         required: true
         default: "default"
         type: choice
@@ -43,24 +43,29 @@ jobs:
           TODAY=$(date +%m%d)
           RUNNER_NAME="${{ runner.name }}"
 
-          # Determine prefix
+          # Determine s3 prefix (sub-directory) 
+          # If the run is automated, set prefix to MMDD and no clean flag
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             PREFIX="$TODAY"
             CLEAN_FLAG=""
             echo "Scheduled run: Prefix=$PREFIX, clean flag not set."
           else
+            # Manually triggered workflow
+            # If sub-dir chosen is default, set prefix to MMDD 
             if [[ "${{ inputs.prefix_selector }}" == "default" ]]; then
               PREFIX="$TODAY"
               echo "Manual run: Using default prefix: $PREFIX"
             else
+              # If sub-dir chosen is custom, check a custom value is input or exit
               if [[ -z "${{ inputs.custom_prefix }}" ]]; then
                 echo "Error: Custom prefix selected but no input provided."
                 exit 1
               fi
+              # Set prefix to user specified value
               PREFIX="${{ inputs.custom_prefix }}"
               echo "Manual run: Using custom prefix: $PREFIX"
             fi
-
+            # If true is chosen in the clean dropdown, set the --clean flag
             if [[ "${{ inputs.clean_prefix }}" == "true" ]]; then
               CLEAN_FLAG="--clean"
               echo "Clean flag is enabled"
@@ -75,7 +80,7 @@ jobs:
           LOGFILE_NAME="build_to_devel-${RUNNER_NAME}-${TIMESTAMP}.log"
           LOGFILE_PATH="/tmp/${LOGFILE_NAME}"
 
-          # Export environment variables
+          # Export environment variables that will be referred in subsequent steps
           echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
           echo "PREFIX=$PREFIX" >> $GITHUB_ENV
           echo "CLEAN_FLAG=$CLEAN_FLAG" >> $GITHUB_ENV
@@ -89,9 +94,8 @@ jobs:
           echo "Prefix: $PREFIX"
           echo "Clean flag: $CLEAN_FLAG"
           echo "Log file path: $LOGFILE_PATH"
-          echo "Target S3 path: https://pgedge-devel.s3.amazonaws.com/REPO/stable/$PREFIX"
 
-      - name: Confirm environment and git repo status
+      - name: Confirm environment and cli repo information
         run: |
           source ~/.bashrc
           echo "OS info:"
@@ -99,7 +103,7 @@ jobs:
           echo "Architecture:"
           arch
 
-          echo "Navigating to project and checking git branch..."
+          echo "Navigating to CLI, branch status and checking out the required branch"
           cd $PGE
           git branch
           git status
@@ -108,7 +112,7 @@ jobs:
         run: |
           source ~/.bashrc
 
-          echo "Launching build script..."
+          echo "Launching daily build script..."
           cd $DEV
 
           echo "Executing: ./build_to_tempdvl.sh $PREFIX $CLEAN_FLAG"
