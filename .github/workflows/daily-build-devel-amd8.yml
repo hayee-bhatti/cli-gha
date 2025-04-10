@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       prefix_selector:
-        description: "Specify pgedge-devel repo sub-directory name (choose 'default' for MMDD or 'custom' to input your own)"
+        description: "Specify pgedge-devel repo sub-directory name (choose 'default' for MMDD or 'custom' to input your own). When the workflow completes successfully, packages will be available at: https://pgedge-devel.s3.amazonaws.com/REPO/stable/<sub-dir>"
         required: true
         default: "default"
         type: choice
