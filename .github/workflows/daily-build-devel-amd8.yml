@@ -168,6 +168,7 @@ jobs:
         if: steps.build_to_devel.outcome == 'success'
         continue-on-error: true
         run: |
+          source ~/.bashrc
           # ensuring an unsuccessful deletion of this dir doesn't cause the entire job to fail
           run_day=$(date +%j)
           TARGET="$HIST/devel-$run_day"
