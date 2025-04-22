@@ -1,0 +1,111 @@
+name: Dummy Daily Build (amd8)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prefix_selector:
+        description: "Choose S3 prefix mode"
+        required: true
+        default: "default"
+        type: choice
+        options:
+          - default
+          - custom
+
+      custom_prefix:
+        description: "If 'custom' selected above, provide S3 prefix"
+        required: false
+
+      clean_prefix:
+        description: "Clean the target S3 prefix before build"
+        required: false
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
+
+  # Scheduled run every day at 7:55pm UTC
+  schedule:
+    - cron: "05 20 * * *"
+
+jobs:
+  dummy-build:
+    runs-on: [self-hosted, amd8]
+
+    steps:
+      # Step to set dynamic values (prefix, clean flag, logfile name)
+      - name: Set prefix, clean flag, and log file
+        id: vars
+        run: |
+          source /home/rocky/.bashrc
+
+          echo "Setting build variables based on trigger..."
+
+          # Compute default MMDD prefix
+          TODAY=$(date +%m%d)
+
+          # Handle scheduled trigger
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            PREFIX="$TODAY"
+            CLEAN_FLAG=""
+            echo "Scheduled run: prefix=$PREFIX, clean=disabled"
+
+          # Handle manual trigger
+          else
+            echo "Manual run detected"
+
+            if [[ "${{ inputs.prefix_selector }}" == "default" ]]; then
+              PREFIX="$TODAY"
+              echo "Prefix set to default: $PREFIX"
+            else
+              if [[ -z "${{ inputs.custom_prefix }}" ]]; then
+                echo "Custom prefix selected but no value provided. Exiting."
+                exit 1
+              fi
+              PREFIX="${{ inputs.custom_prefix }}"
+              echo "Custom prefix set to: $PREFIX"
+            fi
+
+            if [[ "${{ inputs.clean_prefix }}" == "true" ]]; then
+              CLEAN_FLAG="--clean"
+              echo "Clean flag enabled"
+            else
+              CLEAN_FLAG=""
+              echo "Clean flag disabled"
+            fi
+          fi
+
+          # Save environment variables for future steps
+          echo "PREFIX=$PREFIX" >> $GITHUB_ENV
+          echo "CLEAN_FLAG=$CLEAN_FLAG" >> $GITHUB_ENV
+
+          # Timestamped logfile
+          TS=$(date +%m%d%y-%H%M)
+          RUNNER_NAME=${{ runner.name }}
+          LOGFILE_NAME="build_to_devel-${RUNNER_NAME}-${TS}.log"
+          LOGFILE_PATH="/tmp/${LOGFILE_NAME}"
+
+          echo "LOGFILE_NAME=$LOGFILE_NAME" >> $GITHUB_ENV
+          echo "LOGFILE_PATH=$LOGFILE_PATH" >> $GITHUB_ENV
+
+          echo "Log file will be created at: $LOGFILE_PATH"
+
+      # Simulate the build (no real execution)
+      - name: Simulate build output
+        run: |
+          echo "Creating dummy build log at $LOGFILE_PATH"
+          echo "Simulated build started at: $(date)" > "$LOGFILE_PATH"
+          echo "Prefix: $PREFIX" >> "$LOGFILE_PATH"
+          echo "Clean: $CLEAN_FLAG" >> "$LOGFILE_PATH"
+          echo "Simulated build completed successfully." >> "$LOGFILE_PATH"
+
+          echo "Dummy build complete - exiting with success code."
+          exit 0
+
+      - name: Upload dummy build log
+        uses: actions/upload-artifact@v4
+        with:
+          name: dummy-build-log
+          path: ${{ env.LOGFILE_PATH }}
+          if-no-files-found: error
