@@ -56,8 +56,8 @@ on:
           - "true"
         default: "false"
 
- # schedule:
- #   - cron: "0 0 * * *"  # 12:00 AM UTC, 1 hour after stable build at 11:00 PM UTC
+  # schedule:
+  #   - cron: "0 0 * * *"  # 12:00 AM UTC, 1 hour after stable build at 11:00 PM UTC
 
 jobs:
   build-current-amd8:
@@ -267,5 +267,5 @@ jobs:
 
           echo "Removing temporary log files..."
           rm -rf "$LOG_DIR"
-       #   rm -f "${LOG_DIR}.tar.gz" || true
+          #rm -f "${LOG_DIR}.tar.gz" || true
           echo "Cleanup completed"
