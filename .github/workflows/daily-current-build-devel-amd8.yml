@@ -171,10 +171,10 @@ jobs:
           git status
 
           echo "Stashing changes if any..."
-          git stash push -u -m "Temp stash for current build" || true
+          ##--git stash push -u -m "Temp stash for current build" || true
 
-          echo "Switching to branch: $CLI_BRANCH"
-          git checkout "$CLI_BRANCH" || true
+          ##--echo "Switching to branch: $CLI_BRANCH"
+          ##--git checkout "$CLI_BRANCH" || true
           echo "Branch checkout completed"
 
       # Execute the build script and collect artifacts into src/ and bin/
@@ -193,6 +193,7 @@ jobs:
           fi
 
           echo "Executing: $BUILD_CMD"
+          ##--remove the env variable
           AWS_PROFILE=pgedge-build $BUILD_CMD > "$LOGFILE_PATH" 2>&1
           EXIT_CODE=$?
 
