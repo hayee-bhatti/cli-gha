@@ -100,11 +100,11 @@ jobs:
           LOGFILE_PATH="/tmp/${LOGFILE_NAME}"
 
           # Export environment variables that will be referred in subsequent steps
-          echo "RUNNER_NAME=$RUNNER_NAME" >> $GITHUB_ENV
-          echo "PREFIX=$PREFIX" >> $GITHUB_ENV
-          echo "CLEAN_FLAG=$CLEAN_FLAG" >> $GITHUB_ENV
-          echo "LOGFILE_PATH=$LOGFILE_PATH" >> $GITHUB_ENV
-          echo "CLI_BRANCH=$SELECTED_CLI_BRANCH" >> $GITHUB_ENV
+          echo "RUNNER_NAME=$RUNNER_NAME" >> $HUB_ENV
+          echo "PREFIX=$PREFIX" >> $HUB_ENV
+          echo "CLEAN_FLAG=$CLEAN_FLAG" >> $HUB_ENV
+          echo "LOGFILE_PATH=$LOGFILE_PATH" >> $HUB_ENV
+          echo "CLI_BRANCH=$SELECTED_CLI_BRANCH" >> $HUB_ENV
 
           echo "Log file will be created at: $LOGFILE_PATH"
 
@@ -133,10 +133,10 @@ jobs:
           git status
 
           echo "Stashing changes (if any)..."
-          git stash push -u -m "Temp stash for branch switch" || true
+          ##--git stash push -u -m "Temp stash for branch switch" || true
 
-          echo "Checking out branch: $CLI_BRANCH"
-          git checkout "$CLI_BRANCH" || true
+          ##--echo "Checking out branch: $CLI_BRANCH"
+          ##--git checkout "$CLI_BRANCH" || true
 
       - name: Run build and push to devel repo
         id: build_to_devel
@@ -147,7 +147,8 @@ jobs:
           cd $DEV
 
           echo "Executing: ./build_to_devel_2.sh -m stable -d $PREFIX $CLEAN_FLAG"
-          ./build_to_devel_2.sh -m stable -d "$PREFIX" $CLEAN_FLAG > "$LOGFILE_PATH" 2>&1
+          ##-- remove this env variable
+          AWS_PROFILE=pgedge-build ./build_to_devel_2.sh -m stable -d "$PREFIX" $CLEAN_FLAG > "$LOGFILE_PATH" 2>&1
           EXIT_CODE=$?
           
           echo "Build finished with exit code: $EXIT_CODE"
